@@ -1,0 +1,732 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jul 23 13:37:07 2019
+
+@author: alflo
+"""
+import re 
+import pandas as pd
+import matplotlib.pyplot as plt 
+sdix = pd.read_csv('/home/alflo/Documents/stage_greta/tableClient10v1.csv',sep=';')  
+sdix.head()
+
+##########supprimer doublon sur les numéros de sirette#########
+
+sdix. drop_duplicates ([ 'S10SIR' ], keep = 'last' )
+
+###########fonction changement de colonne S10LOC>>>S10BPO#########
+
+"""def boite_postale_Cs(nb_ligne,colonneLoc,bp_ou_cs):
+    for ligne in range(nb_ligne):
+        BP=sdix.iloc[ligne][colonneLoc]
+        x=re.sub('[^\w]+',"",BP)
+        match = re.search('(\d+)', x)
+            
+        if match  : 
+            boite=match.group()
+            boite= bp_ou_cs+ boite
+            #print(boite)
+            sdix.loc[sdix.index[ligne], "S10BPO"]=boite
+            #print("ligne= ",ligne,BP," >>>",match.group(),">>>",boite)
+            
+    return sdix"""
+       
+
+#########selection des contacts apres 31/12/2013################
+
+
+sdix[ "S10WDM" ].fillna( "00/00/0000" , inplace = True )
+
+
+def selection_annee(date):     
+    #print(type(date))  
+    
+    
+    date=re.sub('[A-Za-z]+',"",date)
+    annee=re.sub('[" ",".","\-"]+',"",date)
+    annee=re.sub("([\d]{2}/){2}","", annee)
+    annee=int(annee)
+    #print(annee)
+    return annee
+
+nb_ligne=len(sdix)
+liste_sup=[]
+
+for ligne in range(nb_ligne):
+    #print("num",ligne)
+    #nom_colonne="S10WDC"
+    colonne=4
+    date=sdix.iloc[ligne][colonne]
+    date_1=selection_annee(date)
+    colonne=5
+    date=sdix.iloc[ligne][colonne]
+    date_2=selection_annee(date) 
+    
+    if date_1<=2014 and date_2<=2014: 
+        liste_sup.append(ligne)
+    
+c=len(liste_sup)
+print("c= ",c)        
+sdix=sdix.drop(liste_sup)
+h=len(sdix)
+print("h= ",h)   
+
+
+##########pour la colonne S10RUE format postale de l'adresse ##########
+
+def format_adresse (nb_ligne,nom_colonne,vieux,nouveau,table,colonne):
+    vieux=str(vieux) 
+    
+    for ligne in range(nb_ligne):
+        nom=sdix.iloc[ligne][colonne]
+        nom=str(nom)
+        if vieux in nom:
+            table[nom_colonne]=table[nom_colonne]. str.replace(vieux,nouveau)
+            #print("yes",ligne)
+            #print(nouveau ,"ok")
+           
+    #print(erreur," correction dans la collonne",nom_colonne)
+            return table
+
+
+
+
+######formatage des numeros de tel en xx xx xx xx xx ##########
+
+def format_telephone (nb_ligne,table,num_colonne,nom_colonne):
+    erreur=0
+    #df = pd.DataFrame()
+    
+    for ligne in range (nb_ligne):
+        tel=table.iloc[ligne][num_colonne]
+        tel=str(tel)
+        #print(tel)
+        tel_o=re.sub('["\-","."," ","/"]+',"",tel)
+        tel_t=re.sub('^[3]{2}','',tel_o)
+        
+        #print(tel_t)
+        if len(tel_t)==9:
+            tel_t="0"+tel_t
+        
+            #tel_t="0"+tel_t
+        if len(tel_t)==10:
+            bonFmt = '{0}{1} {2}{3} {4}{5} {6}{7} {8}{9}'    
+            new_tel=bonFmt.format(*tel_t)
+            table[nom_colonne]=table[nom_colonne]. str.replace(tel,new_tel)
+            
+    
+       
+        if new_tel != tel:
+            erreur+=1
+    print(erreur," correction dans la collonne",nom_colonne)
+    """#df[nom_colonne] = [erreur]  
+    #print(df)
+    
+    return (table,nom_colonne,erreur)"""
+    return(table,tel)
+
+
+
+
+"""def nb_coorection(erreur,nom_colonne):
+    erreur+=1
+    print(erreur," correction dans la collonne",nom_colonne)"""
+
+
+
+
+
+
+
+
+###########transfert de cellule (echange) et vis versa###############
+    
+def transfert_cellule(cellule_l,liste_recherche,table,partDe,vaA):
+    
+    nb_lisR=len(liste_recherche)
+    t_v=0
+    while t_v<nb_lisR:
+    #for t_v in range (nb_voie):
+        if liste_recherche[t_v] in cellule:
+            liste=[]
+            #print("ligne= ",ligne,adresse)
+            liste.append(cellule)
+            
+            complement=str(sdix.iloc[ligne][vaA])
+            #print(complement)
+            liste.append(complement)
+            #print(liste)
+            
+            
+            sdix.loc[sdix.index[ligne], vaA]=""
+            sdix.loc[sdix.index[ligne], partDe]=""
+                
+            sdix.loc[sdix.index[ligne], vaA]=liste[0]
+            sdix.loc[sdix.index[ligne], partDe]=liste[1]
+            liste=[]
+            return sdix
+            break
+        else:
+            t_v+=1
+        continue
+    
+###########transfert de cellule simple ############### 
+        
+    
+
+    
+def transfert_cellule_simple(cellule,cellule_l,liste_recherche,table,partDe,vaA):
+    nb_lisR=len(liste_recherche)
+    t_v=0
+    
+    while t_v<nb_lisR:
+    
+        if liste_recherche[t_v] in cellule_l:
+            liste=[]
+            #print("ligne= ",ligne,cellule_l)
+            liste.append(cellule_l)
+        
+            sdix.loc[sdix.index[ligne], vaA]=""
+            sdix.loc[sdix.index[ligne], partDe]=""
+            sdix[ "S10LOC" ].fillna( "" , inplace = True )    
+            sdix.loc[sdix.index[ligne], vaA]=liste[0]
+            #sdix.loc[sdix.index[ligne], partDe]=liste[1]
+            liste=[]
+            
+            
+            return table
+    
+        
+        else:
+            t_v+=1
+        continue
+        
+#______________fonction comptage correction___________
+
+
+def comptage_corection(colonneLoc,nb_ligne,sdix,table):
+    erreur=0
+    for ligne in range(nb_ligne):
+        if sdix.iloc[ligne][colonneLoc]!=table.iloc[ligne][colonneLoc]:
+            erreur+=1
+    
+    return erreur
+
+def correction_transfet_simple(cellule,partDe,ligne): 
+    erreur=0
+    if cellule!=str(sdix.iloc[ligne][partDe]):
+        erreur+=1
+    return erreur
+
+
+
+
+    
+#__________création data frame du comptage des corrections_______
+        
+df_correction= pd.DataFrame()
+
+#____________correction adresse_____________
+
+nb_ligne=int(len(sdix)-1)
+print('le nombre de ligne est',nb_ligne)
+nom_colonne="S10RUE"
+table=sdix
+colonne=9 
+
+table[nom_colonne]=table[nom_colonne]. str.title()
+
+table=format_adresse(nb_ligne,nom_colonne,"Avenue","avenue",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Rue","rue",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne, "Bd","boulevard",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Boulevard","boulevard",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Quai","quai",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Route","route",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Impasse","impasse",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Bis","bis ",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Le ","le ",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"La ","la ",table,colonne)
+#table=format_adresse(nb_ligne,nom_colonne,"Les","les",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Du ","du ",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Des ","des ",table,colonne)
+#table=format_adresse(nb_ligne,nom_colonne,"Sur","sur",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"De ","de ",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"L'","l'",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Rond Point","rond point",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Place","place'",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Zi","ZI",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Za","ZA",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Mail","mail",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Rn","RN",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Bp","bp",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Av ","Avenue",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"ZAc","ZAC",table,colonne)
+table=format_adresse(nb_ligne,nom_colonne,"Allée","allée",table,colonne)
+
+#_______comptage des adresses mal renseignés dans S10RUE____________
+
+colonneLoc=9 
+erreur=comptage_corection(colonneLoc,nb_ligne,sdix,table)
+df_correction[nom_colonne] = [erreur]
+print(df_correction)    
+    
+#___selectionne tous les boites postale et les CS qui sont dans_______ 
+#____la mauvaise colonne et les change de colonne S10(loc>>>BPO)__________________________
+
+    
+sdix[["S10LOC","S10BPO"]]=sdix["S10LOC"].str.split('BP', 1, expand=True)
+sdix[ "S10BPO" ].fillna( "" , inplace = True )
+
+
+nb_ligne=len(sdix)
+colonneLoc=11
+erreur=0
+bp_ou_cs="BP "
+for ligne in range(100):
+    BP=sdix.iloc[ligne][colonneLoc]
+    x=re.sub('[^\w]+',"",BP)
+    match = re.search('(\d+)', x)
+            
+    if match  : 
+        boite=match.group()
+        boite= bp_ou_cs+ boite
+        #print(boite)
+        sdix.loc[sdix.index[ligne], "S10BPO"]=boite
+        erreur+=1
+        
+#______comptage des corrections des BP (S10 LOC BP0)_________   
+        
+nom_colonne="S10LOC-BP"     
+colonneLoc=11 
+df_correction[nom_colonne] = [erreur]
+print(df_correction)  
+
+#_____suite_____________
+
+erreur=0         
+sdix[ "S10LOC" ].fillna( "" , inplace = True )        
+colonneLoc=10
+for ligne in range(nb_ligne):
+    BP=sdix.iloc[ligne][colonneLoc]
+    #print(BP)
+    x=re.sub('["\-",".","/"]+',"",BP)
+    #print("ligne= ",ligne,x)
+    match = re.search('(CS) (\d+)', x)
+    if match: 
+            
+        boite=match.group()
+        #boite=re.sub('["(CS)(\d+)"]','["(CS) (\d+)"]',boite)
+        #print(boite)
+        sdix.loc[sdix.index[ligne], "S10BPO"]=boite
+        sdix.loc[sdix.index[ligne], "S10LOC"]=""
+        #print("ligne= ",ligne,BP," >>>",match.group(),">>>",boite) 
+        erreur+=1
+        
+#______comptage des corrections des CS (S10 LOC BP0)__________
+        
+nom_colonne="S10LOC-CS"     
+colonneLoc=10 
+df_correction[nom_colonne] = [erreur]
+print(df_correction)
+        
+
+
+#_________enleve les adresse voie des localisations et vis versa S10(LOC>><<RUE)________
+       
+liste_recherche=["avenue","route","impasse","allée","mail","boulevard","quai","passage","rue"]
+
+nb_ligne=len(sdix)
+
+colonneLoc=10
+vaA="S10RUE"
+partDe="S10LOC"
+for ligne in range(nb_ligne):
+    cellule=str(sdix.iloc[ligne][colonneLoc])
+    cellule_l=cellule.lower()
+    #print(adresse,type(adresse))
+    table=transfert_cellule(cellule_l,liste_recherche,table,partDe,vaA)
+
+#_________comptage des corrections LOC>><<RUE_______________    
+    
+    cor=correction_transfet_simple(cellule,partDe,ligne)
+    erreur+=cor
+    
+df_correction["LOC>><<RUE"] = [erreur]
+print(df_correction)
+
+            
+#_________enleve les complement adresse des localisations  S10(LOC>>>CP2)________       
+        
+liste_recherche=["chez","attention","mr ","mme "]        
+        
+nb_ligne=len(sdix)
+erreur=0
+colonneLoc=10
+vaA="S10CP2"
+partDe="S10LOC"
+for ligne in range(nb_ligne):
+    cellule=str(sdix.iloc[ligne][colonneLoc])
+    cellule_l=cellule.lower()
+    #print(adresse,type(adresse))
+    table=transfert_cellule_simple(cellule,cellule_l,liste_recherche,table,partDe,vaA) 
+    
+#_______correction S10(LOC>>>CP2)________    
+    
+    cor=correction_transfet_simple(cellule,partDe,ligne)
+    erreur+=cor
+    
+df_correction["LOC>>>CP2"] = [erreur]
+print(df_correction)
+
+
+
+
+       
+        
+#_________enleve les adresse des compléments S10(CP1>>>RUE)________   
+
+
+ 
+liste_recherche=["avenue","route","impasse","allée","mail","boulevard","quai","passage","rue","chemin"]    
+    
+nb_ligne=len(sdix)
+
+colonneLoc=7
+vaA="S10RUE"
+partDe="S10CP1"
+for ligne in range(nb_ligne):
+    cellule=str(sdix.iloc[ligne][colonneLoc])
+    cellule_l=cellule.lower()
+    
+    #print(adresse,type(adresse))
+    table=transfert_cellule_simple(cellule,cellule_l,liste_recherche,table,partDe,vaA) 
+    
+#_______correction S10(CP1>>>RUE)________
+    
+    cor=correction_transfet_simple(cellule,partDe,ligne)
+    erreur+=cor
+    
+df_correction["CP1>>>RUE"] = [erreur]
+print(df_correction)
+    
+    
+
+
+#____________enleve les localisations des compléments S10(CP1>>>LOC)________
+    
+liste_recherche=["ZI ","ZA ","ZAC","ZONE","PA","CC"]    
+#sdix[ "S10LOC" ].fillna( "" , inplace = True )      
+nb_ligne=len(sdix)
+
+colonneLoc=7
+vaA="S10LOC"
+partDe="S10CP1"
+##cellule="vide"
+for ligne in range(nb_ligne):
+    cellule=str(sdix.iloc[ligne][colonneLoc])
+    cellule_l=cellule.upper()
+    cellule_l=re.sub('["\-",".","/"]+',"",cellule_l)
+    #print(adresse,type(adresse))
+    table=transfert_cellule_simple(cellule,cellule_l,liste_recherche,table,partDe,vaA)
+
+#_______correction S10(CP1>>>LOC)________
+    
+    cor=correction_transfet_simple(cellule,partDe,ligne)
+    erreur+=cor
+df_correction["CP1>>>LOC"] = [erreur]
+print(df_correction)       
+    
+#____________enleve les localisations des compléments S10(CP2>>>LOC)________
+    
+liste_recherche=["ZI ","ZA ","ZAC","ZONE"]    
+#sdix[ "S10LOC" ].fillna( "" , inplace = True )      
+nb_ligne=len(sdix)
+
+colonneLoc=8
+vaA="S10LOC"
+partDe="S10CP2"
+##cellule="vide"
+for ligne in range(nb_ligne):
+    cellule=str(sdix.iloc[ligne][colonneLoc])
+    cellule_l=cellule.upper()
+    cellule_l=re.sub('["\-",".","/"]+',"",cellule_l)
+    #print(adresse,type(adresse))
+    table=transfert_cellule_simple(cellule,cellule_l,liste_recherche,table,partDe,vaA)
+    
+#_______correction S10(CP2>>>LOC)________  
+    
+    cor=correction_transfet_simple(cellule,partDe,ligne)
+    erreur+=cor
+df_correction["CP2>>>LOC"] = [erreur]
+print(df_correction)    
+    
+   
+    
+    
+    
+#________majuscule pour la colonne S10NOM,S10VIL_______
+table=sdix 
+table[ "S10NOM" ] = table[ "S10NOM" ].  str .upper() 
+table["S10VIL"]= table["S10VIL"]. str.upper()
+
+#_____pour le tel______
+   
+nom_colonne="S10TEL"    
+num_colonne=15 
+#table,nom_colonne,erreur=format_telephone (nb_ligne,table,num_colonne,nom_colonne)
+table,tel=format_telephone (nb_ligne,table,num_colonne,nom_colonne)   
+print(type(table))
+#print(nom_colonne,erreur)
+
+#__________comptage des corections dans S10TEL ___________________
+
+colonneLoc=15 
+#erreur=comptage_corection(colonneLoc,nb_ligne,sdix,table)
+#df_correction[nom_colonne] = [erreur]
+print(df_correction)
+cellule_l=tel
+partDe="S10TEL"
+for ligne in range(nb_ligne):
+    
+
+
+    cor=correction_transfet_simple(cellule_l,partDe,ligne)
+    erreur+=cor
+    
+df_correction["S10TEL"] = [erreur]
+print(df_correction)       
+
+
+
+
+#_____pour le fax_____
+
+
+nom_colonne="S10TLC"    
+num_colonne=16
+#table,nom_colonne,erreur=format_telephone (nb_ligne,table,num_colonne,nom_colonne)
+table,tel=format_telephone (nb_ligne,table,num_colonne,nom_colonne)
+print(nom_colonne,erreur)
+
+#__________comptage des corections dans  S10TLC_________________
+
+colonneLoc=15 
+#erreur=comptage_corection(colonneLoc,nb_ligne,sdix,table)
+#df_correction[nom_colonne] = [erreur]
+print(df_correction)
+cellule_l=tel
+partDe="S10TLC"
+for ligne in range(nb_ligne):
+    
+
+
+    cor=correction_transfet_simple(cellule_l,partDe,ligne)
+    erreur+=cor
+    
+df_correction["S10TLC"] = [erreur]
+print(df_correction)       
+
+
+
+
+
+
+"""colonneLoc=16 
+#erreur=comptage_corection(colonneLoc,nb_ligne,sdix,table)
+#df_correction[nom_colonne] = [erreur]
+print(df_correction)
+cellule_l=tel
+partDe="S10TLC"
+for ligne in range(nb_ligne):
+    
+
+
+    cor=correction_transfet_simple(cellule_l,partDe,ligne)
+    erreur+=cor
+    
+df_correction["S10TLC"] = [erreur]
+print(df_correction)      
+colonneLoc=16 
+erreur=comptage_corection(colonneLoc,nb_ligne,sdix,table)
+df_correction[nom_colonne] = [erreur]
+print(df_correction)"""
+"""colonneLoc=16 
+erreur=comptage_corection(colonneLoc,nb_ligne,sdix,table)
+dt_correction[nom_colonne] = [erreur]"""
+
+#________separons dans deux collone les nom et les titres S10LSC_______
+
+temoin=table
+nom_collonne=(list(table))
+nb_collone=len(nom_collonne)
+#print("il y a:",nb_collone, nom_collonne)
+n=nom_collonne.index('C10LSC')
+#print("C10LSC>>>",n)
+nb_ligne=len(table)
+n_colonne='C10LSC'
+colonneLoc=n
+
+#separons en 2 collonnes les titres des nom (C10LSC,C10PST)
+
+for ligne in range(nb_ligne):
+    cellule_l=str(table.iloc[ligne][colonneLoc])
+    origine=cellule_l
+#enlevons les tirets des nom composés
+    
+    match=re.search('([\w]+\-[\w]+)',cellule_l)
+    if match  : 
+        match=match.group()
+        match_n=re.sub('\-'," ",match)
+        cellule_l=cellule_l.replace(match,match_n)
+        #print(match,">>>",type(match),match_n,">>>",type(match_n))
+        
+#transformons les tirets en virgule pour ceer une collones titres et nom  
+        
+    cellule_l=re.sub('["\-"]',",",cellule_l)
+    
+#remetons les tirets au nom composés 
+    
+    if match:
+        
+        cellule_l=cellule_l.replace(match_n,match)
+        #print(match,">>>",type(match),match_n,">>>",type(match_n))
+        
+#ceons une collones titres et nom avec le separateur virgule et gardons que les collones utile
+     
+    table.loc[table.index[ligne], "C10LSC"]=cellule_l
+
+table[['C10LSC','C10PST']]=table['C10LSC'].str.split(', ', 1, expand=True)
+table=table[['S10DOS', 'S10CAT', 'S10CLI', 'S10WDC', 'S10WDM', 'S10NOM', 'S10CP1',
+           'S10CP2', 'S10RUE', 'S10LOC', 'S10BPO', 'S10CDP', 'S10VIL', 'S10TEL',
+           'S10TLC', 'S10EMA', 'S10HTP', 'S10CL3', 'S10EFF', 'S10RSC', 'S10S01',
+           'S10OB1', 'S10OB2', 'S10CCC', 'S10SIR', 'S10MM1', 'S10PRO', 'S10LCK',
+           'C10NAF', 'C10TAI', 'C10STC', 'C10PST', 'C10LSC', 'C10NF8', 'S10KNP']]
+
+#___________inversons les nom et les titres ('C10LSC','C10PST')
+
+ 
+cellule=str(sdix.iloc[1][31])
+print(type(cellule))
+
+
+print(type(table))
+nb_ligne=len(table)
+liste_recherche=["MONSIEUR","MADAME","MR","MME","M ","M."]
+vaA='C10LSC'
+partDe='C10PST'
+v=(list(table))
+id_vaA=v.index(vaA)
+id_partDe=v.index(partDe)
+#table=transfert_cellule(cellule,liste_recherche,table,partDe,vaA)
+
+for ligne in range(60):
+    cellule=str(table.iloc[ligne][id_partDe])
+    
+        
+    cellule=cellule.upper()
+    l_r=len(liste_recherche)
+
+    i=0
+    while i < l_r:
+        if liste_recherche[i] in cellule:
+            liste=[]
+            #print(cellule)
+            liste.append(cellule)
+            
+            complement=str(table.iloc[ligne][vaA])
+            #print(complement)
+            liste.append(complement)
+            #print(liste)
+            
+            
+            table.loc[table.index[ligne], vaA]=""
+            table.loc[table.index[ligne], partDe]=""
+                
+            table.loc[table.index[ligne], vaA]=liste[0]
+            table.loc[table.index[ligne], partDe]=liste[1]
+            liste=[]
+            break
+        else:
+            i+=1
+            
+#__________correction 'C10PST'_______________  
+     
+liste_table=list(table)
+colonne_table=liste_table.index('C10LSC')
+nb_l_table=len(table)
+
+print(">>",nb_l_table,">>",colonne_table)
+cellule_l=origine
+partDe='C10LSC'
+
+erreur=0
+for ligne in range(nb_l_table):
+    #if table.iloc[ligne][colonne_table]!=origine:
+        #erreur+=1
+
+#df_correction['C10LSC'] = [erreur]
+#print(df_correction)
+
+
+
+    cor=correction_transfet_simple(cellule_l,partDe,ligne)
+    erreur+=cor
+    
+df_correction["C10LSC"] = [erreur]
+print(df_correction)            
+            
+            
+#table.to_csv('sdix.csv')
+            
+df_correction.to_csv("cor_sdix.csv")
+
+#_________________le graph des erreurs_____________
+
+liste_correction=list(df_correction)     
+nb_l_cor=len(liste_correction)
+valeur=df_correction.iloc[0] 
+
+f, ax1 = plt.subplots(figsize =(7,7))
+correction=plt.bar(range(nb_l_cor), valeur, width = 0.6, color = 'orange',    edgecolor = 'blue', linewidth = 5)
+plt.xticks(range(nb_l_cor), liste_correction,
+rotation = 45)    
+#pyplot.yticks(range(3), [min_pm10,moy_pm10, max_pm10]) 
+plt.xlabel(correction, fontsize = 20,color='blue')
+plt.ylabel('collonne',fontsize = 20,color='blue')
+plt.title('nombre de correction de la table client',fontsize = 20,color='blue')
+
+#graph_barre=plt.savefig(correction+".jpg")
+
+#on utilise barh, en remplaçant width par height et bottom par left.
+
+f, ax1 = plt.subplots(figsize =(7,7))
+correction=plt.bar(range(nb_l_cor), valeur, width = 0.6, color = 'orange',    edgecolor = 'blue', linewidth = 5)
+plt.xticks(range(nb_l_cor), liste_correction,
+rotation = 45)    
+#pyplot.yticks(range(3), [min_pm10,moy_pm10, max_pm10]) 
+plt.xlabel(correction, fontsize = 20,color='blue')
+plt.ylabel('collonne',fontsize = 20,color='blue')
+
+plt.title('nombre de correction de la table client',fontsize = 20,color='blue')
+
+#graph_barre=plt.savefig(correction+".jpg")
+
+
+"""vaA='C10LSC'
+partDe='C10PST'
+
+v=(list(sdix))
+colonneLoc=v.index ('C10PST')
+
+liste_recherche=["MONSIEUR","MADAME","MR","MME","M"]    
+    
+nb_ligne=len(sdix)
+
+for ligne in range(nb_ligne):
+    cellule=str(sdix.iloc[ligne][colonneLoc])
+    
+    cellule=cellule.upper()
+    
+    #print(adresse,type(adresse))
+    sdix=transfert_cellule(cellule,liste_recherche,table,partDe,vaA)"""
