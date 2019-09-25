@@ -1,3 +1,3 @@
 # script-nettoyage
-réalisé pendant un stage
-python
+#réalisé pendant un stage
+#python
